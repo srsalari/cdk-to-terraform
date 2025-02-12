@@ -25,7 +25,7 @@ phases:
       - echo "Configuring AWS CLI..."
       - aws sts get-caller-identity
       - echo "Initializing Terraform..."
-      - terraform init -backend-config="bucket=$TF_STATE_BUCKET" -backend-config="key=$TF_STATE_KEY" -backend-config="region=$TF_REGION"
+      - terraform init 
       - terraform validate
 
   build:
