@@ -1,0 +1,52 @@
+version: 0.2
+
+env:
+  variables:
+    TF_STATE_BUCKET: "terraform-state-file-112025"  # S3 bucket for Terraform state
+    TF_STATE_KEY: "terraform.tfstate"             # State file name in S3
+    TF_REGION: "ca-central-1"                        # AWS region
+    ACTION: "apply"                               # Default action: 'apply' or 'destroy'
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.9
+    commands:
+      - echo "Installing Terraform on Amazon Linux..."
+      - sudo yum update -y
+      - sudo yum install -y wget unzip
+      - wget https://releases.hashicorp.com/terraform/1.6.0/terraform_1.6.0_linux_amd64.zip
+      - unzip terraform_1.6.0_linux_amd64.zip
+      - sudo mv terraform /usr/local/bin/
+      - terraform --version
+
+  pre_build:
+    commands:
+      - echo "Configuring AWS CLI..."
+      - aws sts get-caller-identity
+      - echo "Initializing Terraform..."
+      - terraform init -backend-config="bucket=$TF_STATE_BUCKET" -backend-config="key=$TF_STATE_KEY" -backend-config="region=$TF_REGION"
+      - terraform validate
+
+  build:
+    commands:
+      - |
+        if [ "$ACTION" == "apply" ]; then
+          echo "Running Terraform Plan..."
+          terraform plan -out=tfplan -var="aws_region=$TF_REGION"
+
+          echo "Applying Terraform Changes..."
+          terraform apply -auto-approve tfplan
+
+        elif [ "$ACTION" == "destroy" ]; then
+          echo "Destroying Terraform Resources..."
+          terraform destroy -auto-approve -var="aws_region=$TF_REGION"
+
+        else
+          echo "Invalid ACTION parameter. Use 'apply' or 'destroy'."
+          exit 1
+        fi
+
+  post_build:
+    commands:
+      - echo "Terraform operation ($ACTION) completed successfully."
